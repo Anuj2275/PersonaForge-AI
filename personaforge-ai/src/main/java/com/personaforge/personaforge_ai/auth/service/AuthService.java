@@ -1,6 +1,7 @@
 package com.personaforge.personaforge_ai.auth.service;
 
 import com.personaforge.personaforge_ai.auth.dto.RegisterRequest;
+import com.personaforge.personaforge_ai.auth.dto.UpdateUserRequest;
 import com.personaforge.personaforge_ai.auth.dto.UserResponse;
 import com.personaforge.personaforge_ai.exception.EmailAlreadyExistsException;
 import com.personaforge.personaforge_ai.user.entity.Role;
@@ -16,7 +17,7 @@ import com.personaforge.personaforge_ai.auth.dto.LoginRequest;
 import com.personaforge.personaforge_ai.security.JwtService;
 
 @Service
-@RequiredArgsConstructor
+@RequiredArgsConstructor //Lombok generates a constructor for all final fields.
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -95,6 +96,43 @@ public class AuthService {
                 userRepository
                         .findByEmail(email)
                         .orElseThrow();
+
+        return new UserResponse(
+                user.getId(),
+                user.getName(),
+                user.getEmail(),
+                user.getRole().name()
+        );
+    }
+
+    public UserResponse updateCurrentUser(UpdateUserRequest request) {
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        String email =
+                authentication.getName();
+
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow(
+                                () -> new RuntimeException(
+                                        "User not found"
+                                )
+                        );
+
+        if (request.name() != null && !request.name().trim().isEmpty()) {
+            user.setName(request.name());
+        }
+
+        if (request.password() != null && !request.password().trim().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(request.password()));
+        }
+
+        userRepository.save(user);
 
         return new UserResponse(
                 user.getId(),

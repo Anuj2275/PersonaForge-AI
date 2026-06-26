@@ -1,23 +1,33 @@
-import { useState } from 'react';
-import AppShell from '../components/layout/AppShell';
-import { useToast } from '../components/ui/Toast';
-import { currentUser } from '../data/mockData';
-
+import { useState, useEffect } from 'react';
+import { getCurrentUser } from "../api/authApi";
+import { useToast } from "../components/ui/Toast";
+import AppShell from "../components/layout/AppShell";
+// Simplified settings: remove Notifications and Plan & Billing from the visible nav.
 const navItems = [
   ['profile', '👤', 'Profile'],
   ['preferences', '🎨', 'Preferences'],
-  ['notifications', '🔔', 'Notifications'],
   ['security', '🔒', 'Security'],
-  ['plan', '⭐', 'Plan & Billing'],
   ['danger', '⚠️', 'Danger Zone'],
 ];
 
 export default function Settings() {
+  const [currentUserState, setCurrentUserState] = useState(null);
   const [section, setSection] = useState('profile');
   const showToast = useToast();
 
   const save = () => showToast('Changes saved');
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const res = await getCurrentUser();
+        setCurrentUserState(res.data);
+      } catch (err) {
+        console.error(err);
+      }
+    };
 
+    loadUser();
+  }, []);
   return (
     <AppShell title="Settings">
       <div className="grid lg:grid-cols-[220px_1fr] h-full">
@@ -53,11 +63,9 @@ export default function Settings() {
 
         {/* Content */}
         <main className="overflow-y-auto p-6 sm:p-10 pb-20">
-          {section === 'profile' && <ProfileSection onSave={save} />}
+          {section === 'profile' && <ProfileSection user={currentUserState} />}
           {section === 'preferences' && <PreferencesSection onSave={save} />}
-          {section === 'notifications' && <NotificationsSection onSave={save} />}
-          {section === 'security' && <SecuritySection onSave={save} />}
-          {section === 'plan' && <PlanSection />}
+          {section === 'security' && <SecuritySection user={currentUserState} onSave={save} />}
           {section === 'danger' && <DangerSection />}
         </main>
       </div>
@@ -87,37 +95,90 @@ function SaveBar({ onSave, label = 'Save changes' }) {
   );
 }
 
-function ProfileSection({ onSave }) {
+function ProfileSection({ user }) {
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setNameError('Name is required');
+      return;
+    }
+    setNameError('');
+    if (!email.trim()) {
+      setEmailError('Email is required');
+      return;
+    }
+    setEmailError('');
+    if (newPassword && newPassword !== confirmPassword) {
+      alert('New passwords do not match');
+      return;
+    }
+
+    try {
+      const payload = { name, email };
+      if (newPassword) payload.password = newPassword;
+
+      await fetch('http://localhost:8080/api/auth/me', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(payload)
+      });
+      alert('Profile updated successfully');
+    } catch (error) {
+      console.error(error);
+      alert('Failed to update profile');
+    }
+  };
+
+  const initials = (user?.name || ' ').split(' ').map((n) => n[0]).join('');
+
   return (
     <div>
-      <SectionHeader title="Profile" sub="Your public and account information. This is used to personalize your experience." />
+      <SectionHeader title="Profile" sub="Manage your account information (name, email, password)." />
       <div className="card p-6">
         <div className="flex items-center gap-5 mb-6">
           <div className="relative w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0" style={{ background: 'linear-gradient(135deg,#7C6FE0,#2DD4A8)' }}>
-            {currentUser.initials}
-            <div className="absolute -bottom-1.5 -right-1.5 w-5.5 h-5.5 rounded-md bg-card2 border border-border flex items-center justify-center text-[10px] cursor-pointer">✏️</div>
+            {initials}
           </div>
           <div>
-            <div className="font-display text-base font-semibold">{currentUser.name}</div>
-            <div className="text-[13px] text-muted mt-0.5">{currentUser.email}</div>
-            <div className="flex gap-2 mt-2.5">
-              <button className="text-[11px] text-purple-b tag-purple px-3 py-1.5 rounded-md cursor-pointer">Upload photo</button>
-              <button className="text-[11px] text-dim border border-border px-3 py-1.5 rounded-md cursor-pointer">Remove</button>
-            </div>
+            <div className="font-display text-base font-semibold">{user?.name}</div>
+            <div className="text-[13px] text-muted mt-0.5">{user?.email}</div>
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-4 mb-4">
-          <div><Label>First name</Label><input className="form-input" defaultValue="Arjun" /></div>
-          <div><Label>Last name</Label><input className="form-input" defaultValue="Kumar" /></div>
-        </div>
-        <div className="mb-4"><Label>Email address</Label><input type="email" className="form-input" defaultValue={currentUser.email} /></div>
         <div className="mb-4">
-          <Label>Bio <span className="font-normal text-dim normal-case">(optional)</span></Label>
-          <textarea className="form-input resize-y min-h-[80px]" defaultValue={currentUser.bio} />
+          <Label>Full name</Label>
+          <input
+            type="text"
+            className="form-input"
+            placeholder="Your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          {nameError && <div className="text-xs text-red-400 mt-1">{nameError}</div>}
         </div>
-        <div className="mb-6"><Label>Role / occupation</Label><input className="form-input" defaultValue={currentUser.occupation} /></div>
-        <SaveBar onSave={onSave} />
+        <div className="mb-4">
+          <Label>Email address</Label>
+          <input type="email" className="form-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          {emailError && <div className="text-xs text-red-400 mt-1">{emailError}</div>}
+        </div>
+
+        <div className="mb-6">
+          <Label>Change password (optional)</Label>
+          <input type="password" className="form-input mb-2" placeholder="Current password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+          <input type="password" className="form-input mb-2" placeholder="New password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+          <input type="password" className="form-input" placeholder="Confirm new password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+        </div>
+        <SaveBar onSave={handleSave} />
       </div>
     </div>
   );
@@ -130,23 +191,18 @@ function PreferencesSection({ onSave }) {
       <SectionHeader title="Preferences" sub="Customize the look and behavior of PersonaForge." />
       <div className="card p-6 mb-4">
         <div className="text-[13px] font-medium text-muted mb-4">Theme</div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Select theme">
-          {[
-            ['dark', 'Dark (default)', 'linear-gradient(135deg,#0A0A0F 60%,rgba(124,111,224,0.2))'],
-            ['darkteal', 'Dark Teal', 'linear-gradient(135deg,#07070B 60%,rgba(45,212,168,0.15))'],
-            ['light', 'Light (soon)', 'linear-gradient(135deg,#F8F8FC,#EEEEF8)'],
-          ].map(([id, label, bg]) => (
-            <div key={id} role="radio" aria-checked={theme === id} tabIndex={0} onClick={() => setTheme(id)} className={`border-2 rounded-xl p-3.5 cursor-pointer text-center transition-colors ${theme === id ? 'border-purple' : 'border-border hover:border-borderH'}`}>
-              <div className="h-14 rounded-md mb-2.5 border border-white/5" style={{ background: bg }} />
-              <div className="text-xs font-medium text-muted">{label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-1 gap-3" role="radiogroup" aria-label="Select theme">
+          {/* Only keep the default dark theme for now. Other themes are archived. */}
+          <div role="radio" aria-checked={theme === 'dark'} tabIndex={0} onClick={() => setTheme('dark')} className={`border-2 rounded-xl p-3.5 cursor-pointer text-center transition-colors ${theme === 'dark' ? 'border-purple' : 'border-border hover:border-borderH'}`}>
+            <div className="h-14 rounded-md mb-2.5 border border-white/5" style={{ background: 'linear-gradient(135deg,#0A0A0F 60%,rgba(124,111,224,0.2))' }} />
+            <div className="text-xs font-medium text-muted">Dark (default)</div>
+          </div>
         </div>
       </div>
       <div className="card p-6">
         <div className="text-[13px] font-medium text-muted mb-1">Default AI Platform</div>
-        <div className="text-xs text-dim mb-3.5">When you copy a prompt, we’ll include platform-specific formatting tips.</div>
-        <select className="form-input max-w-[260px]" aria-label="Default AI platform">
+        <div className="text-xs text-dim mb-3.5">Platform selection is stored locally. Formatting rules will apply only when AI integrations are enabled.</div>
+        <select className="form-input max-w-[260px]" aria-label="Default AI platform" defaultValue="ChatGPT">
           <option>ChatGPT</option><option>Claude</option><option>Gemini</option><option>DeepSeek</option><option>No preference</option>
         </select>
         <div className="mt-4"><SaveBar onSave={onSave} label="Save" /></div>
@@ -183,7 +239,7 @@ function NotificationsSection({ onSave }) {
   );
 }
 
-function SecuritySection({ onSave }) {
+function SecuritySection({ onSave, user }) {
   return (
     <div>
       <SectionHeader title="Security" sub="Manage your password and active sessions." />
@@ -192,28 +248,11 @@ function SecuritySection({ onSave }) {
         <div className="mb-4"><Label>Current password</Label><input type="password" className="form-input" placeholder="Enter current password" /></div>
         <div className="grid sm:grid-cols-2 gap-4 mb-4">
           <div><Label>New password</Label><input type="password" className="form-input" placeholder="Min. 8 characters" /></div>
-          <div><Label>Confirm new password</Label><input type="password" className="form-input" placeholder="Repeat new password" /></div>
+          <div><Label>Confirm password</Label><input type="password" className="form-input" placeholder="Confirm new password" /></div>
         </div>
         <SaveBar onSave={onSave} label="Update password" />
       </div>
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div><div className="text-[13px] font-medium text-muted">Active sessions</div><div className="text-xs text-dim mt-0.5">Logged in devices and locations</div></div>
-          <button className="text-xs text-[#FF8080] px-3.5 py-1.5 rounded-lg cursor-pointer" style={{ background: 'rgba(255,80,80,0.07)', border: '1px solid rgba(255,80,80,0.15)' }}>Sign out all others</button>
-        </div>
-        <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-3 p-3 bg-card2 rounded-lg border border-border">
-            <span className="text-xl">💻</span>
-            <div className="flex-1"><div className="text-[13px] font-medium">Chrome · Windows</div><div className="text-[11px] text-dim">{currentUser.location} · Active now</div></div>
-            <span className="text-[11px] tag-teal rounded-md px-2 py-0.5">Current</span>
-          </div>
-          <div className="flex items-center gap-3 p-3 bg-card2 rounded-lg border border-border">
-            <span className="text-xl">📱</span>
-            <div className="flex-1"><div className="text-[13px] font-medium">Safari · iPhone</div><div className="text-[11px] text-dim">Shimla, India · 3 days ago</div></div>
-            <button className="text-[11px] text-dim border border-border px-2.5 py-1 rounded-md cursor-pointer">Revoke</button>
-          </div>
-        </div>
-      </div>
+      {/* Active sessions listing removed from simplified UI. Keep handlers available in backend; restore here if needed. */}
     </div>
   );
 }

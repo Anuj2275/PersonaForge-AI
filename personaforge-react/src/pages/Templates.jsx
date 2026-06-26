@@ -1,15 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell';
 import { useToast } from '../components/ui/Toast';
-import { templates } from '../data/mockData';
+import { getTemplates } from '../api/templateApi';
 
 const categories = [
   ['all', 'All'], ['dev', 'Development'], ['career', 'Career'],
   ['learning', 'Learning'], ['business', 'Business'], ['creative', 'Creative'], ['health', 'Health'],
 ];
 
-const featured = templates.filter((t) => t.badge);
+// featured will be derived from loaded templates state inside the component
 
 const badgeMeta = {
   featured: { label: '✦ Featured', bg: 'rgba(124,111,224,0.1)', border: 'rgba(124,111,224,0.2)', color: 'var(--purple-b)' },
@@ -23,14 +23,29 @@ export default function Templates() {
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState('all');
   const [modalTemplate, setModalTemplate] = useState(null);
+  const [templates, setTemplates] = useState([]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await getTemplates();
+        setTemplates(res.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    load();
+  }, []);
+
+  const featured = templates.filter((t) => t.badge);
 
   const filtered = useMemo(() => {
     return templates.filter((t) => {
       const matchCat = cat === 'all' || t.category === cat;
-      const matchQ = !query || t.name.toLowerCase().includes(query.toLowerCase()) || t.desc.toLowerCase().includes(query.toLowerCase());
+      const matchQ = !query || (t.title || '').toLowerCase().includes(query.toLowerCase()) || (t.description || '').toLowerCase().includes(query.toLowerCase());
       return matchCat && matchQ;
     });
-  }, [query, cat]);
+  }, [query, cat, templates]);
 
   const applyTemplate = (name) => {
     setModalTemplate(null);
@@ -78,20 +93,20 @@ export default function Templates() {
                 onKeyDown={(e) => e.key === 'Enter' && setModalTemplate(t)}
                 className="card p-6 cursor-pointer hover:-translate-y-0.5 relative overflow-hidden"
                 style={t.badge === 'featured' ? { background: 'linear-gradient(135deg,rgba(124,111,224,0.05),rgba(45,212,168,0.03))', borderColor: 'rgba(124,111,224,0.2)' } : undefined}
-                aria-label={`${t.name} template`}
+                aria-label={`${t.title} template`}
               >
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide px-2 py-1 rounded-md mb-3.5" style={{ background: meta.bg, border: `1px solid ${meta.border}`, color: meta.color }}>
                   {meta.label}
                 </span>
-                <span className="text-3xl mb-3.5 block">{t.icon}</span>
-                <div className="font-display text-base font-semibold mb-1.5">{t.name}</div>
-                <p className="text-[13px] text-muted leading-relaxed mb-4">{t.desc}</p>
+                <span className="text-3xl mb-3.5 block">{t.icon || '📄'}</span>
+                <div className="font-display text-base font-semibold mb-1.5">{t.title}</div>
+                <p className="text-[13px] text-muted leading-relaxed mb-4">{t.description}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-3">
-                    <span className="text-[11px] text-dim">👥 {t.uses} uses</span>
-                    <span className="text-[11px] text-dim">⭐ {t.score}</span>
+                    <span className="text-[11px] text-dim">👥 {t.uses ?? '-' } uses</span>
+                    <span className="text-[11px] text-dim">⭐ {t.score ?? '-'}</span>
                   </div>
-                  <button onClick={(e) => { e.stopPropagation(); applyTemplate(t.name); }} className="text-xs font-medium tag-purple rounded-md px-3 py-1.5 hover:bg-purple/[0.18] transition-colors" aria-label={`Use ${t.name} template`}>
+                  <button onClick={(e) => { e.stopPropagation(); applyTemplate(t.title); }} className="text-xs font-medium tag-purple rounded-md px-3 py-1.5 hover:bg-purple/[0.18] transition-colors" aria-label={`Use ${t.title} template`}>
                     Use →
                   </button>
                 </div>
@@ -114,12 +129,12 @@ export default function Templates() {
               aria-label={`${t.name} template`}
             >
               <span className="text-2xl mb-2.5 block">{t.icon}</span>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-dim mb-1.5">{t.cat}</div>
-              <div className="font-display text-[13px] font-semibold mb-1">{t.name}</div>
-              <p className="text-xs text-dim leading-relaxed mb-3">{t.desc}</p>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-dim mb-1.5">{t.category}</div>
+              <div className="font-display text-[13px] font-semibold mb-1">{t.title}</div>
+              <p className="text-xs text-dim leading-relaxed mb-3">{t.description}</p>
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-teal font-semibold">⭐ {t.score}</span>
-                <span className="text-[10px] text-dim">{t.uses} uses</span>
+                <span className="text-[11px] text-teal font-semibold">⭐ {t.score ?? '-'}</span>
+                <span className="text-[10px] text-dim">{t.uses ?? '-'} uses</span>
               </div>
             </div>
           ))}

@@ -1,9 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import AppShell from "../components/layout/AppShell";
 import PersonaCard from "../components/ui/PersonaCard";
-import { personas, templates } from "../data/mockData";
 import { useEffect, useState } from "react";
-import { getCurrentUser } from "../api/authApi";
 import { getPersonas } from "../api/personaApi";
 
 const stats = [
@@ -63,23 +61,33 @@ const activity = [
 ];
 
 export default function Dashboard() {
-  const [user, setUser] = useState(null);
   const [personas, setPersonas] = useState([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const activePersonas = personas.filter((p) => !p.archived).slice(0, 5);
+  const activePersonas = personas.filter((p) => p.status === 'ACTIVE' || !p.status).slice(0, 5);
   // const quickTemplates = templates.slice(0, 5);
   const quickTemplates = [];
 
   const loadData = async () => {
     try {
-      console.log("TOKEN:", localStorage.getItem("token"));
-      const userResponse = await getCurrentUser();
-
       const personaResponse = await getPersonas();
 
-      setUser(userResponse.data);
-      setPersonas(personaResponse.data.content);
+      const list = personaResponse.data?.content ?? personaResponse.data ?? [];
+      const mapped = Array.isArray(list)
+        ? list.map((p) => ({
+            id: p.id,
+            name: p.name,
+            role: p.role,
+            description: p.goal ?? p.generatedPrompt ?? '',
+            score: p.score ?? '—',
+            version: `v${p.versions?.length ?? 1}`,
+            icon: p.name?.charAt(0) ?? 'P',
+            iconBg: 'linear-gradient(135deg,#7C6FE0,#2DD4A8)',
+            status: p.status ?? 'ACTIVE',
+            updated: p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '',
+          }))
+        : [];
+      setPersonas(mapped);
     } catch (error) {
       console.error(error);
     } finally {
@@ -90,8 +98,7 @@ export default function Dashboard() {
     loadData();
   }, []);
 
-  console.log(user);
-  console.log(personas);
+
 
   return (
     <AppShell title="Dashboard">
@@ -134,6 +141,13 @@ export default function Dashboard() {
             View all →
           </button>
         </div>
+        {loading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-7">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card h-[160px] animate-pulse bg-white/[0.02]" />
+            ))}
+          </div>
+        ) : (
         <div
           className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-7"
           role="list"
@@ -141,8 +155,8 @@ export default function Dashboard() {
         >
           {activePersonas.map((p) => (
             <PersonaCard key={p.id} persona={p} />
-          ))}
-          <div
+          ))}        
+             <div
             role="button"
             tabIndex={0}
             onClick={() => navigate("/persona/new")}
@@ -155,8 +169,9 @@ export default function Dashboard() {
             <div className="text-xs text-dim">2 remaining on free plan</div>
           </div>
         </div>
-
-        {/* Bottom row */}
+        )
+        // {/* Bottom row */}
+      }
         <div className="grid lg:grid-cols-2 gap-3.5">
           {/* Activity */}
           <section className="card p-5" aria-label="Recent activity">

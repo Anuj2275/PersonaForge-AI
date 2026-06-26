@@ -42,6 +42,14 @@ public class User {
     )
     private List<Persona> personas;
 
+
+//    📚 Library Card Analogy
+//
+//@PrePersist → "This card is being created for the first time. Write the creation date."
+//@PreUpdate → "This card already exists. Just update the last modified date."
+//
+//New record → @PrePersist
+//Existing record changes → @PreUpdate ✅
     @PrePersist
     public void prePersist() {
         createdAt = LocalDateTime.now();

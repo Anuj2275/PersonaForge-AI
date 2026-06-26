@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import ScoreRing from '../components/ui/ScoreRing';
 import { useToast } from '../components/ui/Toast';
-import { promptVersions, scoreBreakdown, suggestions } from '../data/mockData';
+// import { promptVersions, scoreBreakdown, suggestions } from '../data/mockData';
+import { getPersonaById } from "../api/personaApi";
+
+import { useEffect } from "react";
 
 const tabs = [
   { id: 'prompt', label: 'Prompt' },
@@ -12,21 +15,50 @@ const tabs = [
 ];
 
 export default function PersonaDetail() {
-  useParams(); // route param reserved for future API lookup by persona id
+  // useParams(); // route param reserved for future API lookup by persona id
+  const { id } = useParams();
+
+const [persona, setPersona] = useState(null);
   const navigate = useNavigate();
   const showToast = useToast();
   const [activeTab, setActiveTab] = useState('prompt');
   const [versionIdx, setVersionIdx] = useState(0);
 
   // Fallback to react-mentor data set regardless of id for this static demo
-  const versions = promptVersions['react-mentor'];
-  const current = versions[versionIdx];
+  // const versions = promptVersions['react-mentor'];
+  // const current = versions[versionIdx];
 
   const copyPrompt = () => {
-    navigator.clipboard.writeText(current.prompt).catch(() => {});
+    navigator.clipboard.writeText(persona?.generatedPrompt).catch(() => {});
     showToast('Prompt copied to clipboard');
   };
+useEffect(() => {
+  const loadPersona = async () => {
+    try {
+      const response =
+        await getPersonaById(id);
 
+      setPersona(response.data);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  loadPersona();
+}, [id]);
+if (!persona) {
+  return <div>Loading...</div>;
+}
+// Provide safe fallbacks for fields not yet provided by backend
+const versions = persona.versions ?? [
+  { version: 'v1', date: 'Now', current: true, score: persona.score ?? 0, note: '', changes: [] },
+];
+const suggestions = persona.suggestions ?? [];
+const scoreBreakdown = persona.scoreBreakdown ?? [
+  { label: 'Relevance', value: Math.round((persona.score ?? 0) * 0.6), color: 'teal' },
+  { label: 'Instructions', value: Math.round((persona.score ?? 0) * 0.3), color: 'purple' },
+  { label: 'Safety', value: Math.round((persona.score ?? 0) * 0.1), color: 'amber' },
+];
   return (
     <div className="bg-bg text-textc font-sans min-h-screen">
       {/* TOPBAR */}
@@ -35,7 +67,7 @@ export default function PersonaDetail() {
         <nav className="flex items-center gap-2 text-[13px] text-dim" aria-label="Breadcrumb">
           <span>My Personas</span>
           <span className="opacity-40">/</span>
-          <span className="text-muted font-medium">React Mentor</span>
+          <span className="text-muted font-medium">persona?.name</span>
         </nav>
         <div className="ml-auto flex gap-2">
           <button onClick={() => navigate('/persona/new')} className="btn-outline" aria-label="Edit persona">
@@ -57,17 +89,17 @@ export default function PersonaDetail() {
           <div className="flex flex-col sm:flex-row items-start gap-5 mb-8 pb-7 border-b border-border">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-[26px] flex-shrink-0 border" style={{ background: 'linear-gradient(135deg,rgba(124,111,224,0.3),rgba(45,212,168,0.2))', borderColor: 'rgba(124,111,224,0.2)' }} aria-hidden="true">⚛️</div>
             <div className="flex-1 min-w-0">
-              <h1 className="font-display text-2xl font-bold tracking-tight mb-1">React Mentor</h1>
-              <div className="text-sm text-muted mb-3">Senior Frontend Engineer · Project-based teaching</div>
+              <h1 className="font-display text-2xl font-bold tracking-tight mb-1">persona?.name</h1>
+              <div className="text-sm text-muted mb-3">{persona.role} · Project-based teaching</div>
               <div className="flex gap-1.5 flex-wrap">
                 <span className="text-[11px] font-medium rounded-md px-2.5 py-1 tag-purple">Adaptive difficulty</span>
                 <span className="text-[11px] font-medium rounded-md px-2.5 py-1 tag-teal">Direct communication</span>
                 <span className="tag text-[11px] px-2.5 py-1">Hands-on</span>
-                <span className="tag text-[11px] px-2.5 py-1">{current.version} · Current</span>
+                <span className="tag text-[11px] px-2.5 py-1">{persona?.version} · Current</span>
               </div>
             </div>
             <div className="text-right flex-shrink-0 self-center sm:self-auto">
-              <div className="flex justify-end mb-1"><ScoreRing score={current.score} size={64} stroke={5} /></div>
+              <div className="flex justify-end mb-1"><ScoreRing score={persona?.score} size={64} stroke={5} /></div>
               <div className="text-xs text-dim">Prompt quality</div>
             </div>
           </div>
@@ -105,7 +137,7 @@ export default function PersonaDetail() {
                       <option key={v.version} value={i}>{v.version} — {v.current ? 'Current' : v.date}</option>
                     ))}
                   </select>
-                  <span className="text-[11px] text-dim">Updated {versions[0].date}</span>
+                    <span className="text-[11px] text-dim">Updated {versions[0].date}</span>
                 </div>
                 <div className="flex gap-1.5">
                   <ToolbarBtn onClick={copyPrompt} icon="📋" label="Copy" />
@@ -115,7 +147,7 @@ export default function PersonaDetail() {
               </div>
 
               <div className="bg-[#0D0D14] border border-border rounded-xl p-6 font-mono text-[13px] leading-[1.8] text-muted whitespace-pre-wrap break-words mb-5" tabIndex={0} role="region" aria-label="Generated system prompt">
-                <PromptHighlight text={current.prompt} />
+                <PromptHighlight text={persona?.generatedPrompt} />
               </div>
 
               <div className="flex gap-2 flex-wrap pt-1">
@@ -132,7 +164,7 @@ export default function PersonaDetail() {
             <div className="animate-fadeIn">
               <div className="grid sm:grid-cols-2 gap-5 mb-7">
                 <div className="card p-6 text-center" style={{ borderColor: 'rgba(45,212,168,0.2)' }}>
-                  <div className="font-display text-5xl font-bold text-teal leading-none" aria-label={`Overall score: ${current.score} out of 10`}>{current.score}</div>
+                  <div className="font-display text-5xl font-bold text-teal leading-none" aria-label={`Overall score: ${persona?.score} out of 10`}>{persona?.score}</div>
                   <div className="text-[13px] text-muted mt-1.5">Overall Quality</div>
                   <div className="text-[11px] text-dim mt-1">Excellent — top 15% of personas</div>
                 </div>
@@ -229,7 +261,7 @@ export default function PersonaDetail() {
                 ['Category', 'Mentor'], ['Domain', 'React · Frontend'], ['Skill level', 'Intermediate'],
                 ['Teaching style', 'Project-based'], ['Communication', 'Direct'], ['Difficulty', 'Adaptive'],
                 ['Session length', '1–2 hours'], ['Memory', 'Track progress + recap'],
-                ['Created', 'Nov 28, 2024'], ['Versions', String(versions.length)],
+                ['Created', 'Nov 28, 2024'], ['Versions', String(persona?.versions.length)],
               ].map(([k, v]) => (
                 <div key={k} className="flex justify-between items-start pb-2.5 border-b border-border last:border-0 last:pb-0">
                   <span className="text-xs text-dim">{k}</span>

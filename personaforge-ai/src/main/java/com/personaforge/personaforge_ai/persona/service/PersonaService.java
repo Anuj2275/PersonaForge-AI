@@ -1,5 +1,15 @@
 package com.personaforge.personaforge_ai.persona.service;
 
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Service;
+
 import com.personaforge.personaforge_ai.exception.PersonaNotFoundException;
 import com.personaforge.personaforge_ai.persona.dto.CreatePersonaRequest;
 import com.personaforge.personaforge_ai.persona.dto.PersonaMapper;
@@ -10,13 +20,8 @@ import com.personaforge.personaforge_ai.persona.entity.PersonaStatus;
 import com.personaforge.personaforge_ai.persona.repository.PersonaRepository;
 import com.personaforge.personaforge_ai.user.entity.User;
 import com.personaforge.personaforge_ai.user.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
-import org.springframework.data.domain.*;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -295,6 +300,39 @@ public class PersonaService {
 
         persona.setStatus(
                 PersonaStatus.ARCHIVED
+        );
+
+        personaRepository.save(persona);
+    }
+
+    public void unarchivePersona(
+            Long id
+    ) {
+
+        Authentication authentication =
+                SecurityContextHolder
+                        .getContext()
+                        .getAuthentication();
+
+        String email =
+                authentication.getName();
+
+        User user =
+                userRepository
+                        .findByEmail(email)
+                        .orElseThrow();
+
+        Persona persona =
+                personaRepository
+                        .findByIdAndUser(id, user)
+                        .orElseThrow(
+                                () -> new PersonaNotFoundException(
+                                        "Persona not found"
+                                )
+                        );
+
+        persona.setStatus(
+                PersonaStatus.ACTIVE
         );
 
         personaRepository.save(persona);

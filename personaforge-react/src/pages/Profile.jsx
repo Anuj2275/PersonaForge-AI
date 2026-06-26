@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../components/ui/Toast';
-import { currentUser, personas } from '../data/mockData';
+import { getCurrentUser } from "../api/authApi";
+import { getPersonas } from "../api/personaApi";
 
 const tabs = ['personas', 'activity', 'about'];
 
@@ -15,14 +16,44 @@ const activityFeed = [
 ];
 
 export default function Profile() {
+  const [user, setUser] = useState(null);
+  const [personas, setPersonas] = useState([]);
   const navigate = useNavigate();
   const showToast = useToast();
   const [tab, setTab] = useState('personas');
 
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [uRes, pRes] = await Promise.all([getCurrentUser(), getPersonas()]);
+        setUser(uRes.data);
+        const list = pRes.data?.content ?? pRes.data ?? [];
+        const mapped = Array.isArray(list)
+          ? list.map((p) => ({
+              id: p.id,
+              name: p.name,
+              role: p.role,
+              description: p.goal ?? p.generatedPrompt ?? '',
+              score: p.score ?? '—',
+              version: 'v1',
+              icon: p.name?.charAt(0) ?? 'P',
+              iconBg: 'linear-gradient(135deg,#7C6FE0,#2DD4A8)',
+              archived: false,
+            }))
+          : [];
+        setPersonas(mapped);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    load();
+  }, []);
+
   const showcase = personas.filter((p) => !p.archived).slice(0, 4);
 
   const copyLink = () => {
-    navigator.clipboard.writeText('https://personaforge.ai/u/arjun').catch(() => {});
+    navigator.clipboard.writeText(`https://personaforge.ai/u/${user?.id ?? 'me'}`).catch(() => {});
     showToast('Profile link copied');
   };
 
@@ -52,15 +83,14 @@ export default function Profile() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-end gap-5 -mt-11 sm:-mt-11 mb-6 relative z-10">
           <div className="relative flex-shrink-0">
-            <div className="w-[88px] h-[88px] rounded-[20px] flex items-center justify-center font-display text-3xl font-bold border-4 border-bg" style={{ background: 'linear-gradient(135deg,#7C6FE0,#2DD4A8)' }} aria-label="Arjun Kumar avatar">
-              {currentUser.initials}
+              <div className="w-[88px] h-[88px] rounded-[20px] flex items-center justify-center font-display text-3xl font-bold border-4 border-bg" style={{ background: 'linear-gradient(135deg,#7C6FE0,#2DD4A8)' }} aria-label="avatar">
+              {(user?.name || ' ').split(' ').map((n) => n[0]).join('').slice(0,2)}
             </div>
             <div className="absolute -bottom-1 -right-1 w-[22px] h-[22px] rounded-md bg-teal border-2 border-bg flex items-center justify-center text-[11px]" title="Verified account" aria-label="Verified">✓</div>
           </div>
           <div className="flex-1 min-w-0 pb-1.5">
-            <h1 className="font-display text-[22px] font-bold tracking-tight mb-1">{currentUser.name}</h1>
-            <div className="text-[13px] text-dim mb-2">{currentUser.handle} · personaforge.ai/u/arjun</div>
-            <p className="text-[13px] text-muted leading-relaxed max-w-[480px]">{currentUser.bio}</p>
+            <h1 className="font-display text-[22px] font-bold tracking-tight mb-1">{user?.name}</h1>
+            <div className="text-[13px] text-dim mb-2">{user?.email ?? 'user'} · personaforge.ai/u/{user?.id ?? 'me'}</div>
           </div>
           <div className="flex-shrink-0 pb-1.5 flex gap-2 flex-wrap w-full sm:w-auto">
             <Link to="/settings" className="btn-outline flex-1 sm:flex-none justify-center" aria-label="Edit profile">✏️ Edit Profile</Link>
@@ -70,19 +100,19 @@ export default function Profile() {
 
         {/* Meta */}
         <div className="flex items-center gap-5 flex-wrap mb-7 pb-6 border-b border-border" role="list" aria-label="Profile details">
-          <MetaItem icon="📍" text={currentUser.location} />
-          <MetaItem icon="💼" text={currentUser.occupation} />
-          <MetaItem icon="📅" text={`Joined ${currentUser.joined}`} />
+          {/* <MetaItem icon="📍" text={user?.location ?? ''} />
+          <MetaItem icon="💼" text={user?.occupation ?? ''} />
+          <MetaItem icon="📅" text={user ? `Joined` : ''} /> */}
           <div className="flex items-center gap-1.5 text-[13px] text-dim" role="listitem">
             <span aria-hidden="true">🔗</span>
-            <a href="#" className="text-purple-b no-underline">{currentUser.github}</a>
+            <a href="#" className="text-purple-b no-underline">{user?.github ?? user?.email}</a>
           </div>
         </div>
 
         {/* Own profile bar */}
         <div className="rounded-xl p-3.5 px-4.5 flex items-center justify-between gap-3.5 flex-wrap mb-6" style={{ background: 'rgba(124,111,224,0.06)', border: '1px solid rgba(124,111,224,0.15)' }} role="region" aria-label="Share your profile">
           <div className="text-[13px] text-muted">Share your persona library with others → they can browse and use your public personas.</div>
-          <button onClick={copyLink} className="text-xs text-dim bg-card2 border border-border px-3.5 py-1.5 rounded-lg font-mono cursor-pointer hover:border-borderH hover:text-muted transition-all">personaforge.ai/u/arjun</button>
+          <button onClick={copyLink} className="text-xs text-dim bg-card2 border border-border px-3.5 py-1.5 rounded-lg font-mono cursor-pointer hover:border-borderH hover:text-muted transition-all">personaforge.ai/u/{user?.id ?? 'me'}</button>
         </div>
 
         {/* Stats */}
@@ -158,13 +188,13 @@ export default function Profile() {
             <div className="card p-5">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-dim mb-3.5">Details</div>
               <div className="flex flex-col gap-2.5">
-                {[['Full name', currentUser.name], ['Occupation', currentUser.occupation], ['Location', currentUser.location], ['Member since', currentUser.joined], ['Plan', currentUser.plan]].map(([k, v]) => (
+                {[['Full name', user?.name], ['Occupation', user?.occupation], ['Location', user?.location], ['Member since', user ? 'Member' : ''], ['Plan', user?.plan]].map(([k, v]) => (
                   <div key={k} className="flex justify-between text-[13px] pb-2.5 border-b border-border last:border-0 last:pb-0">
                     <span className="text-dim">{k}</span>
                     <span className="text-muted font-medium" style={k === 'Plan' ? { color: 'var(--purple-b)' } : undefined}>{v}</span>
                   </div>
                 ))}
-                <div className="flex justify-between text-[13px]"><span className="text-dim">GitHub</span><a href="#" className="text-purple-b no-underline font-medium">{currentUser.github}</a></div>
+                <div className="flex justify-between text-[13px]"><span className="text-dim">GitHub</span><a href="#" className="text-purple-b no-underline font-medium">{user?.github ?? user?.email}</a></div>
               </div>
             </div>
             <div className="card p-5">
@@ -179,7 +209,7 @@ export default function Profile() {
               <div className="text-[11px] font-semibold uppercase tracking-wide text-dim mb-3.5">Library Summary</div>
               <div className="flex flex-col gap-2.5">
                 {[
-                  ['Total personas', '8 (6 active, 2 archived)'],
+                  ['Total personas', String(personas.length || 0)],
                   ['Total prompt versions', '24'],
                   ['Average score', '8.6 / 10', 'var(--teal)'],
                   ['Highest scoring persona', 'System Design Coach — 9.4'],

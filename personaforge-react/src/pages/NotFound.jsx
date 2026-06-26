@@ -5,7 +5,7 @@ const quickLinks = [
   ['/personas', '🗂', 'My Personas'],
   ['/templates', '📋', 'Templates'],
   ['/history', '🔀', 'History'],
-  ['/u/arjun', '👤', 'Profile'],
+  ['/profile', '👤', 'Profile'],
   ['/settings', '⚙', 'Settings'],
 ];
 

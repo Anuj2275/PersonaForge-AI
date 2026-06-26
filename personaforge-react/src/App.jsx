@@ -8,7 +8,6 @@ import Builder from './pages/Builder';
 import PersonaDetail from './pages/PersonaDetail';
 import Personas from './pages/Personas';
 import Templates from './pages/Templates';
-import History from './pages/History';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
@@ -28,7 +27,8 @@ export default function App() {
         <Route path="/persona/:id" element={<PersonaDetail />} />
         <Route path="/personas" element={<Personas />} />
         <Route path="/templates" element={<Templates />} />
-        <Route path="/history" element={<History />} />
+        {/* History route is archived/hidden for simplified frontend. Keep code for easy restore. */}
+        {/* <Route path="/history" element={<History />} /> */}
         <Route path="/settings" element={<Settings />} />
         <Route path="/u/:username" element={<Profile />} />
 

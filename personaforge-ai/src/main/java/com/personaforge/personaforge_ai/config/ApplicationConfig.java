@@ -7,6 +7,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Configuration
 public class ApplicationConfig {
+//    Spring, create one BCrypt password encoder and give it to any class that needs password hashing
 
     @Bean
     public PasswordEncoder passwordEncoder() {

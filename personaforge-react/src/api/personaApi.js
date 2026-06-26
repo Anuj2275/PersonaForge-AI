@@ -5,3 +5,6 @@ export const getPersonas = () =>
 
 export const createPersona = (data) =>
     api.post("/personas", data);
+
+export const getPersonaById = (id) =>
+    api.get(`/personas/${id}`);

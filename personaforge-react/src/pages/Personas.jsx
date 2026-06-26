@@ -8,7 +8,8 @@ import { getPersonas } from '../api/personaApi';
 import { useEffect } from 'react';
 
 const categoryFilters = [
-  ['all', 'All'], ['mentor', 'Mentor'], ['coach', 'Coach'], ['advisor', 'Advisor'], ['archived', '📦 Archived'],
+  ['all', 'All'], ['mentor', 'Mentor'], ['coach', 'Coach'], ['advisor', 'Advisor'],
+  // ['archived', '📦 Archived'], // archived filter removed for simplified UI
 ];
 
 export default function Personas() {
@@ -17,54 +18,71 @@ export default function Personas() {
   const [searchParams] = useSearchParams();
   // const [personas, setPersonas] = useState(initialPersonas);
   const [personas, setPersonas] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [view, setView] = useState('grid');
   const [query, setQuery] = useState('');
-  const [cat, setCat] = useState(searchParams.get('filter') === 'archived' ? 'archived' : 'all');
-  const [showArchived, setShowArchived] = useState(cat === 'archived');
+  const [cat, setCat] = useState('all');
+  // archived handling removed; keep backend functions but hide UI
+  const [showArchived, setShowArchived] = useState(false);
 
-  const handleArchive = (id) => {
-    setPersonas((ps) => ps.map((p) => (p.id === id ? { ...p, archived: true } : p)));
-    showToast('Persona archived');
-  };
-  const handleUnarchive = (id) => {
-    setPersonas((ps) => ps.map((p) => (p.id === id ? { ...p, archived: false } : p)));
-    showToast('Persona unarchived and moved to active');
+  const handleArchive = async (id) => {
+    // archive API kept but UI for archiving is disabled in simplified frontend
+    try {
+      await fetch(`http://localhost:8080/api/personas/${id}/archive`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setPersonas((ps) => ps.map((p) => (p.id === id ? { ...p, status: 'ARCHIVED' } : p)));
+      showToast('Persona archived');
+    } catch (error) {
+      console.error(error);
+      showToast('Failed to archive persona');
+    }
   };
 
-  const active = personas.filter((p) => !p.archived);
-  const archived = personas.filter((p) => p.archived);
+  const handleUnarchive = async (id) => {
+    try {
+      await fetch(`http://localhost:8080/api/personas/${id}/unarchive`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      setPersonas((ps) => ps.map((p) => (p.id === id ? { ...p, status: 'ACTIVE' } : p)));
+      showToast('Persona unarchived and moved to active');
+    } catch (error) {
+      console.error(error);
+      showToast('Failed to unarchive persona');
+    }
+  };
+
+  const active = personas.filter((p) => p.status === 'ACTIVE' || !p.status);
+  const archived = personas.filter((p) => p.status === 'ARCHIVED');
 
   const filteredActive = useMemo(() => {
     return active.filter((p) => {
-      const matchCat = cat === 'all' || cat === 'archived' || p.category === cat;
+      const matchCat = cat === 'all' || cat === 'archived' || p.role?.toLowerCase() === cat;
       const matchQ = !query || p.name.toLowerCase().includes(query.toLowerCase());
       return matchCat && matchQ;
     });
   }, [active, cat, query]);
 useEffect(() => {
-
-  const loadPersonas =
-    async () => {
-
-      try {
-
-        const response =
-          await getPersonas();
-
-        setPersonas(
-          response.data.content
-        );
-
-      } catch(error) {
-
-        console.error(error);
-
-      }
-    };
-
+  const loadPersonas = async () => {
+    try {
+      setLoading(true);
+      const response = await getPersonas();
+      setPersonas(response.data.content);
+    } catch(error) {
+      console.error(error);
+      showToast('Failed to load personas');
+    } finally {
+      setLoading(false);
+    }
+  };
   loadPersonas();
-
-}, []);
+}, [showToast]);
   return (
     <AppShell title="My Personas">
       <div className="px-7 pt-4.5 pb-4 border-b border-border">
@@ -89,13 +107,13 @@ useEffect(() => {
           {categoryFilters.map(([id, label]) => (
             <button
               key={id}
-              onClick={() => { setCat(id); if (id === 'archived') setShowArchived(true); }}
+              onClick={() => { setCat(id); }}
               aria-pressed={cat === id}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap ${
                 cat === id ? 'bg-purple/[0.12] border border-purple/30 text-purple-b' : 'bg-white/[0.04] border border-border text-muted hover:border-purple/30 hover:text-purple-b'
               }`}
             >
-              {label} {id !== 'archived' && id === 'all' && <span className="text-[10px] opacity-70">({active.length})</span>}
+              {label} {id === 'all' && <span className="text-[10px] opacity-70">({active.length})</span>}
             </button>
           ))}
         </div>
@@ -104,13 +122,21 @@ useEffect(() => {
       <div className="p-7 pb-16">
         <div className="flex items-center justify-between mb-3.5">
           <div className="font-display text-sm font-semibold text-muted flex items-center gap-2">
-            Active <span className="text-xs text-dim font-sans font-normal">{filteredActive.length} personas</span>
+            Active <span className="text-xs text-dim font-sans font-normal">{loading ? '-' : filteredActive.length} personas</span>
           </div>
         </div>
 
+        {loading ? (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="card h-[190px] animate-pulse bg-white/[0.02]" />
+            ))}
+          </div>
+        ) : (
+        <>
         {view === 'grid' ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5" role="list" aria-label="Active personas">
-            {filteredActive.map((p) => <PersonaCard key={p.id} persona={p} onArchive={handleArchive} />)}
+            {filteredActive.map((p) => <PersonaCard key={p.id} persona={p} />)}
             <div
               role="button" tabIndex={0}
               onClick={() => navigate('/persona/new')}
@@ -150,24 +176,10 @@ useEffect(() => {
             ))}
           </div>
         )}
+        </>
+        )}
 
-        {/* Archived */}
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-3.5">
-            <div className="font-display text-sm font-semibold text-muted flex items-center gap-2">
-              📦 Archived <span className="text-xs text-dim font-sans font-normal">{archived.length} personas</span>
-            </div>
-            <button onClick={() => setShowArchived((s) => !s)} aria-expanded={showArchived} className="text-xs text-dim bg-transparent border-none cursor-pointer">
-              {showArchived ? 'Hide ▴' : 'Show ▾'}
-            </button>
-          </div>
-          {showArchived && (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5" role="list" aria-label="Archived personas">
-              {archived.map((p) => <PersonaCard key={p.id} persona={p} onUnarchive={handleUnarchive} />)}
-              {archived.length === 0 && <div className="text-dim text-sm col-span-full py-4">No archived personas.</div>}
-            </div>
-          )}
-        </div>
+        {/* Archived personas UI removed from simplified frontend. */}
       </div>
     </AppShell>
   );

@@ -1,15 +1,25 @@
 package com.personaforge.personaforge_ai.persona.controller;
 
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.personaforge.personaforge_ai.persona.dto.CreatePersonaRequest;
 import com.personaforge.personaforge_ai.persona.dto.PersonaResponse;
 import com.personaforge.personaforge_ai.persona.dto.UpdatePersonaRequest;
 import com.personaforge.personaforge_ai.persona.service.PersonaService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/personas")
@@ -105,6 +115,14 @@ public class PersonaController {
     ) {
 
         personaService.archivePersona(id);
+    }
+
+    @PatchMapping("/{id}/unarchive")
+    public void unarchivePersona(
+            @PathVariable Long id
+    ) {
+
+        personaService.unarchivePersona(id);
     }
     @PatchMapping("/{id}/delete")
     public void deletePersona(

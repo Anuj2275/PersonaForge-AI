@@ -1,5 +1,10 @@
 package com.personaforge.personaforge_ai.persona.dto;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import com.personaforge.personaforge_ai.persona.entity.PersonaStatus;
+
 public record PersonaResponse(
 
         Long id,
@@ -12,6 +17,14 @@ public record PersonaResponse(
 
         String generatedPrompt,
 
-        Double score
+        Double score,
+
+        PersonaStatus status,
+
+        LocalDateTime createdAt,
+
+        LocalDateTime updatedAt,
+
+        List<PromptVersionResponse> versions
 ) {
 }
